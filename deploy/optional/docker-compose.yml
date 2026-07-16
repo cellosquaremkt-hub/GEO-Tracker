@@ -1,0 +1,32 @@
+# Docker를 쓸 수 있는 환경에서 PostgreSQL을 컨테이너로 옮기고 싶을 때만 쓰는 선택적 구성
+# 파일이다 (docs/backlog.md "Docker 사용 가능 환경으로 전환 시" 참조).
+#
+# 이 프로젝트의 기본 배포 경로(docs/deployment.md)는 서버에 PostgreSQL을 직접 설치해 쓰는
+# 것을 전제로 한다 — 이 파일은 그 경로에서 쓰이지 않는다.
+#
+# 사용하려면:
+#   1. 이 파일을 저장소 루트로 복사(또는 -f로 직접 지정)한 뒤 `docker compose up -d db`
+#   2. .env의 DATABASE_URL 호스트/포트를 컨테이너 쪽으로 맞춘다 — psycopg 드라이버 문자열
+#      형식 자체는 바뀌지 않는다(SQLAlchemy 추상화 위의 모델/쿼리 코드는 그대로 재사용된다).
+#   3. `alembic upgrade head`로 스키마를 적용한다.
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: geo-weekly-tracker-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-geo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-geo_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-geo_weekly_tracker}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - geo_weekly_tracker_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-geo} -d ${POSTGRES_DB:-geo_weekly_tracker}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  geo_weekly_tracker_pgdata:

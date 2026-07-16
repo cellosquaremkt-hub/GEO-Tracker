@@ -1,0 +1,21 @@
+[Unit]
+Description=GEO Weekly Tracker - web app (Flask + Gunicorn)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=geo-tracker
+Group=geo-tracker
+WorkingDirectory=/opt/geo-tracker-flask/backend
+EnvironmentFile=/opt/geo-tracker-flask/.env
+ExecStart=/opt/geo-tracker-flask/backend/.venv/bin/gunicorn -c gunicorn.conf.py app.main:app
+Restart=on-failure
+RestartSec=5
+
+# 이 프로세스는 CLI 서브프로세스를 절대 실행하지 않는다 — PATH에 CLI 실행 파일 경로를 넣을
+# 필요가 없다(migration_flask_postgres.md §2.3). 그래서 geo-tracker-worker.service와 달리
+# Environment=PATH=... 줄이 없다.
+
+[Install]
+WantedBy=multi-user.target

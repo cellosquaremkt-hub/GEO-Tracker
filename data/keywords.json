@@ -1,0 +1,75 @@
+{
+  "_note": "이 파일은 placeholder다. seed 스크립트(backend/app/db/seed.py)가 이 파일의 'prompts' 배열을 읽어 prompt 테이블을 채운다. 실데이터로 교체하려면: 1) 이 파일을 실제 키워드 목록으로 덮어쓴다 (schema는 아래 각 항목의 필드를 그대로 따른다). 2) intent는 자유 텍스트 카테고리, target/priority/language는 backend/app/models/enums.py의 Target/Priority/Language 값 중 하나여야 한다. 3) 이미 실행 이력이 쌓인 프롬프트의 text는 절대 수정하지 말 것 — CLAUDE.md 규칙대로 새 버전을 추가해야 한다. 4) seed 스크립트는 동일 text가 이미 있으면 건너뛰므로 여러 번 실행해도 안전하다(idempotent).",
+  "prompts": [
+    {
+      "text": "How do I calculate the ROI of adopting a digital forwarding platform?",
+      "intent": "AI Strategy",
+      "target": "c-level",
+      "priority": "High",
+      "language": "en"
+    },
+    {
+      "text": "우리 물류 조직에서 에이전틱 AI로 자동화할 수 있는 업무는 무엇인가요?",
+      "intent": "AI Strategy",
+      "target": "c-level",
+      "priority": "High",
+      "language": "ko"
+    },
+    {
+      "text": "What criteria matter most in an RFP for a logistics AI solution?",
+      "intent": "AI Strategy",
+      "target": "manager",
+      "priority": "High",
+      "language": "en"
+    },
+    {
+      "text": "What is a bill of lading and why does it matter?",
+      "intent": "B/L 기초",
+      "target": "junior",
+      "priority": "Low",
+      "language": "en"
+    },
+    {
+      "text": "선하증권(B/L)과 화물운송장의 차이는 무엇인가요?",
+      "intent": "B/L 기초",
+      "target": "junior",
+      "priority": "Low",
+      "language": "ko"
+    },
+    {
+      "text": "How do I switch freight forwarders smoothly without disrupting operations?",
+      "intent": "BOFU 도입",
+      "target": "manager",
+      "priority": "Medium",
+      "language": "en"
+    },
+    {
+      "text": "엔터프라이즈급 화물 운송 파트너를 선택할 때 어떤 레퍼런스와 사례를 확인해야 하나요?",
+      "intent": "BOFU 평가",
+      "target": "manager",
+      "priority": "Medium",
+      "language": "ko"
+    },
+    {
+      "text": "What SLA expectations should I set with an enterprise freight forwarder?",
+      "intent": "BOFU 도입",
+      "target": "practitioner",
+      "priority": "Medium",
+      "language": "en"
+    },
+    {
+      "text": "물류 회사 영업 담당자가 고객에게 AI 기반 화주 서비스를 제안할 때 강조해야 할 차별점은 무엇인가요?",
+      "intent": "영업 지원",
+      "target": "seller",
+      "priority": "Medium",
+      "language": "ko"
+    },
+    {
+      "text": "What are the major AI trends shaping enterprise logistics through 2030?",
+      "intent": "AI Strategy",
+      "target": "c-level",
+      "priority": "High",
+      "language": "en"
+    }
+  ]
+}
