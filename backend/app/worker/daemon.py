@@ -170,6 +170,13 @@ class WeeklyBatchWorker:
 
         제출만 하고 완료를 기다리지 않는다(non-blocking) — 반환값은 이번 폴링에서 새로 제출한
         잡 수다.
+
+        migration_flask_postgres.md §Phase 4는 동시 pickup 안전장치로 `SELECT ... FOR UPDATE
+        SKIP LOCKED` 활용을 "검토"하도록 제안했다 — 이 클래스가 정확히 1개 인스턴스만 떠야
+        한다는 전제(클래스 docstring 참조, systemd가 보장)가 이미 "같은 PENDING 잡을 두 곳에서
+        동시에 집어가는" 경쟁 상황 자체를 구조적으로 없애므로, 여기서는 평범한 SELECT+UPDATE로
+        충분하다고 판단했다 — 여러 인스턴스가 뜰 수 있는 아키텍처로 바뀌면(예: docs/backlog.md의
+        Celery+Redis 전환) 그때 `SKIP LOCKED`를 다시 검토해야 한다.
         """
         session = self._session_factory()
         try:

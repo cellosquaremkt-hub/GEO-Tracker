@@ -4,6 +4,12 @@
 배포하는 절차를 다룬다. 참고 프로젝트(20260709, Windows+SQLite)의 `docs/deployment.md`(폴더
 복사 기반 이전)와는 전제 자체가 다르므로 완전히 새로 작성됐다.
 
+**현재 운영 방식(2026-07-16 기준): 보안 정책상 서버가 외부 GitHub에 직접 연결되지 않는다.**
+그래서 코드는 "이 PC에서 파일을 내려받아 담당자에게 전달 → 담당자가 서버에 직접 설치"하는
+방식으로 옮긴다(§2 참조). 사내 전용 GitHub이 준비되면(아직 미착수) 그쪽에 푸시하고 서버가
+그걸 당겨오는 방식(`git pull` 또는 CI/CD)으로 전환할 수 있지만, **지금은 아직 그렇게 운영되지
+않는다** — 이 문서의 §2는 그 전환 전 단계인 수동 파일 전달 기준으로 작성했다.
+
 ## 0. 아키텍처 요약
 
 이 서비스는 서버에서 **항상 2개의 독립된 프로세스**가 떠 있어야 한다(migration_flask_
@@ -73,24 +79,54 @@ sudo -u postgres psql -c "CREATE DATABASE geo_weekly_tracker_test OWNER geo;"
 Docker를 쓸 수 있는 환경이라면 `deploy/optional/docker-compose.yml`로 대체 가능하다(코드 변경
 없이 `DATABASE_URL`만 바꾸면 된다 — docs/backlog.md 참조).
 
-## 2. 코드 배포
+## 2. 코드 배포 (파일 전달 방식 — 현재 운영 방식)
+
+### 2.1 이 PC에서: 전달용 압축 파일 만들기
+
+로컬에 이미 git 저장소가 있으므로, `git archive`를 쓰면 `.gitignore`에 걸린 것들(`.venv/`,
+`__pycache__/`, `.env`, 캐시 디렉터리 등)이 자동으로 빠진 깨끗한 압축 파일이 만들어진다 —
+수동으로 뭘 지우거나 골라낼 필요가 없다.
+
+```powershell
+cd "C:\자료\작업중\geo-tracker-flask"
+git archive --format=zip -o geo-tracker-flask.zip HEAD
+```
+
+`geo-tracker-flask.zip`이 생성된다 — 이 파일을 담당자에게 전달한다(사내 파일 공유/USB/메일
+등, 회사 보안 정책에 맞는 경로로).
+
+**`.env`는 이 zip에 포함되지 않는다(의도적 — 비밀번호/키가 든 파일을 그대로 전달하면 안 된다).**
+필요한 값들(§2.3 참조)은 담당자에게 **별도의 보안 채널**(사내 메신저 DM, 비밀번호 관리 도구 등)로
+전달하거나, 담당자가 서버에서 직접 값을 새로 발급받는다(예: `ADMIN_API_KEY`는 새로 아무 값이나
+정해도 되고, DB 비밀번호도 서버에서 새로 정해도 된다 — 반드시 이 PC와 같은 값일 필요는 없다).
+
+### 2.2 담당자가 서버에서: 압축 해제 + 설치
 
 ```bash
 sudo mkdir -p /opt/geo-tracker-flask
 sudo chown geo-tracker:geo-tracker /opt/geo-tracker-flask
-sudo -u geo-tracker git clone <repo-url> /opt/geo-tracker-flask   # 또는 rsync/scp로 복사
-cd /opt/geo-tracker-flask/backend
+# geo-tracker-flask.zip을 서버의 /opt/geo-tracker-flask 위치에 옮겨둔 뒤:
+cd /opt/geo-tracker-flask
+sudo -u geo-tracker unzip geo-tracker-flask.zip
+cd backend
 sudo -u geo-tracker python3.11 -m venv .venv
 sudo -u geo-tracker .venv/bin/pip install -e .
 ```
 
-`.env` 준비:
+### 2.3 `.env` 준비 (서버에서 직접 값 채움)
 
 ```bash
 cd /opt/geo-tracker-flask
 sudo -u geo-tracker cp .env.example .env
-sudo -u geo-tracker nano .env   # DATABASE_URL, ADMIN_API_KEY, CLAUDE_CODE_OAUTH_TOKEN 등 실제 값 채우기
+sudo -u geo-tracker nano .env
 ```
+
+채워야 할 값:
+- `DATABASE_URL`/`TEST_DATABASE_URL`: §1.5에서 만든 PostgreSQL 접속 정보
+- `ADMIN_API_KEY`: 아무 임의의 강력한 문자열(관리자 API 인증용 — 프론트엔드 Settings 화면에도
+  같은 값을 입력해야 함)
+- CLI 인증(`CLAUDE_CODE_OAUTH_TOKEN` 등)은 `.env`에 직접 쓰지 않는다 — §1.4대로 서버에서 CLI
+  로그인을 완료하면 OS 사용자 환경에 남는다(자세한 이유는 docs/operations.md §0 참조)
 
 DB 마이그레이션 + 시딩:
 
@@ -99,6 +135,29 @@ cd /opt/geo-tracker-flask/backend
 sudo -u geo-tracker .venv/bin/python -m alembic upgrade head
 sudo -u geo-tracker .venv/bin/python -m app.db.seed
 ```
+
+### 2.4 업데이트(코드가 바뀐 뒤 다시 배포할 때)
+
+지금 방식(사내 GitHub 미연동)에서는 업데이트도 매번 §2.1~2.2를 반복한다 — 이 PC에서
+`git archive`로 새 zip을 만들고, 담당자가 받아서 **기존 `/opt/geo-tracker-flask` 폴더의
+코드만 덮어쓴다**(`.env`와 PostgreSQL 데이터는 그대로 둔다):
+
+```bash
+# 담당자가 서버에서 — 기존 .env는 안전하게 보존한 채 코드만 교체
+cd /opt/geo-tracker-flask
+sudo -u geo-tracker unzip -o new-geo-tracker-flask.zip   # -o: 기존 파일 덮어쓰기, .env는 zip에 없으므로 안 건드려짐
+sudo systemctl restart geo-tracker-web
+# worker 데몬은 배치가 진행 중이 아닐 때 재시작한다(§0 아키텍처 참조 — 진행 중이어도 죽지는
+# 않지만, 재시작하면 그 순간 실행 중이던 CLI 호출은 중단된다)
+sudo systemctl restart geo-tracker-worker
+```
+
+DB 스키마가 바뀐 배포라면(`alembic/versions/`에 새 파일이 있으면) 재시작 전에
+`sudo -u geo-tracker .venv/bin/python -m alembic upgrade head`를 먼저 실행한다.
+
+**나중에(사내 GitHub 연동 이후)**: 이 §2 전체가 `git clone`/`git pull` 한 줄로 단순화된다 —
+서버가 사내 GitHub에서 직접 코드를 받아올 수 있게 되면, 코드 전달을 위해 사람이 파일을 옮길
+필요가 없어진다. 지금은 아직 그 단계가 아니므로 위 수동 절차를 따른다.
 
 ## 3. systemd 유닛 등록
 
@@ -158,9 +217,80 @@ cron은 트리거 API만 호출하고 즉시 끝난다 — CLI 실행은 이미 
    CLI의 로컬 캐시 자격증명은 안전하게 옮길 수 있는지 사전에 확인한다(민감 정보이므로 전송 경로
    보안에 주의).
 
-## 7. 변경 이력
+## 8. 문제 해결 — 서버 직접 접근이 없을 때의 원격 진단
+
+로컬 PC에서 개발할 때는 PowerShell/Bash에 직접 명령어를 쳐서 무엇이 문제인지 바로 확인할 수
+있었다. 서버에 배포한 뒤에는 그 방식 자체가 없어지는 게 아니라 **누가 그 터미널 접근 권한을
+갖는지가 바뀔 뿐이다** — Ubuntu 서버에서는 PowerShell 대신 SSH로 접속한 bash 터미널이 같은
+역할을 한다. 문제는 지금 운영 구조상 **이 PC를 쓰는 사람(관리자)이 서버에 직접 접근하지 못하고,
+담당자만 접근 가능하다는 점**이다 — 그래서 진단은 "담당자에게 어떤 명령어를 실행해서 결과를
+보내달라고 요청하는" 방식으로 이루어진다. 아래는 증상별로 담당자에게 그대로 전달할 수 있는
+명령어 모음이다.
+
+### 8.1 관리자 PC에서 직접 확인 가능한 것 (터미널 접근 없이도 가능)
+
+사내망에서 서버의 8000번 포트(API)에 접근이 허용되어 있다면, **터미널 접근 없이 브라우저나
+`curl`만으로도** 아래는 직접 확인할 수 있다 — 담당자에게 요청할 필요조차 없는 1차 점검:
+
+```
+http://<서버 IP 또는 도메인>:8000/health          → {"status": "ok"} 가 떠야 정상
+http://<서버 IP 또는 도메인>:8000/dashboard/summary → 대시보드 데이터가 JSON으로 떠야 정상
+```
+
+프론트엔드가 서비스되고 있다면 브라우저로 실제 화면(대시보드)을 열어보는 것도 유효한 1차
+점검이다 — 화면이 뜨고 데이터가 보이면 웹 앱과 DB 연결은 정상이라는 뜻이다.
+
+### 8.2 증상별 — 담당자에게 요청할 명령어
+
+**"화면/API가 아예 안 열려요" (웹 앱이 죽어있는지 확인)**
+
+```bash
+sudo systemctl status geo-tracker-web
+sudo journalctl -u geo-tracker-web -n 100 --no-pager
+```
+`Active: active (running)`이 아니면 죽어있는 것 — 로그 마지막 부분에 에러 메시지가 있을
+것이다. `sudo systemctl restart geo-tracker-web`으로 재시작해볼 수 있다(§0 아키텍처상 이
+재시작은 배치 실행에 영향을 주지 않으므로 안전하다).
+
+**"주간 실행을 눌러도 계속 대기(pending) 상태예요" (worker 데몬이 죽어있는지 확인)**
+
+```bash
+sudo systemctl status geo-tracker-worker
+sudo journalctl -u geo-tracker-worker -n 100 --no-pager
+```
+worker 데몬이 안 떠 있으면(`Active`가 running이 아니면) 이게 원인이다 — `sudo systemctl
+restart geo-tracker-worker`로 재시작. 떠 있는데도 안 되면 로그에서 `MissingAPIKeyError`(CLI
+로그인 만료 — docs/operations.md §1~4 재인증 필요) 또는 `CLIRateLimitError`(구독 좌석 사용량
+한도 — 사람 개입 불필요, 기다리면 풀림)를 찾아본다.
+
+**"일부만 실패했어요" (개별 실행 건 원인 확인)**
+
+```bash
+sudo -u geo-tracker psql geo_weekly_tracker -c "SELECT id, llm_provider_id, status, error_message FROM execution_run WHERE batch_id = '<주차, 예: 2026-W29>' AND status = 'failed';"
+```
+
+**"DB 연결 자체가 안 되는 것 같아요"**
+
+```bash
+sudo -u geo-tracker psql -h localhost -U geo geo_weekly_tracker -c "\dt"
+```
+테이블 목록이 나오면 DB 연결은 정상 — 안 나오면 PostgreSQL 서비스 자체(`sudo systemctl status
+postgresql`) 또는 `.env`의 `DATABASE_URL` 값을 의심한다.
+
+### 8.3 실무 팁
+
+- 담당자에게 "안 돼요"라는 보고만 받으면 원인을 좁힐 수 없다 — **위 표 중 증상에 맞는 명령어의
+  출력 전체를 캡처(스크린샷/복사)해서 보내달라고** 요청하는 것을 표준 절차로 삼는 것을 권장한다.
+- 배포 초기에는 담당자에게 이 문서(§8) 자체를 전달해 스스로 1차 점검을 해보도록 안내하는 것도
+  좋다 — 매번 관리자에게 되묻지 않고 담당자 선에서 재시작 정도는 해결할 수 있다.
+- 장기적으로는 담당자(또는 관리자)가 서버에 제한된 SSH 접근 권한(예: `journalctl`/`systemctl
+  status`만 가능한 계정)을 갖는 것을 사내 IT와 협의해볼 가치가 있다 — 매번 명령어를 대신
+  실행해달라고 요청하는 것보다 훨씬 빠르게 진단할 수 있다.
+
+## 9. 변경 이력
 
 | 날짜 | 변경 내용 |
 |---|---|
 | 2026-07-13 | 참고 프로젝트(20260709) STEP 7: 최초 작성 (Windows, 폴더 복사 기반) |
 | 2026-07-15 | Flask+PostgreSQL+Ubuntu 재개발: 전면 재작성 — systemd 유닛 2개, cron 트리거, PostgreSQL 백업/복원 기반 이전으로 전환 |
+| 2026-07-16 | §2를 파일 전달 방식(현재 실제 운영 방식 — 사내 GitHub 미연동)으로 재작성, §8 원격 진단 가이드 신규 추가 |
