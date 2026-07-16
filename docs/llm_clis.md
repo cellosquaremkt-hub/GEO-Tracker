@@ -243,6 +243,16 @@ subprocess_exec()`가 직접 실행하지 못하는 문제가 있었고, `cli_co
 자체를 이식하지 않았다(`app/llm_clients/cli_common.py` 참조). **다만 이 사실은 반드시 실제
 Ubuntu 배포 서버에서 재확인해야 한다**(Phase 3/8 완료 기준 — 가정만으로 넘어가지 않는다).
 
+**실측 기록(2026-07-16, Windows 개발 PC, Phase 8 소규모 파일럿)**: 예상대로 이 Windows PC에서
+`codex-cli`로 실제 트리거를 돌리면 `FileNotFoundError: [WinError 2] 지정된 파일을 찾을 수
+없습니다`로 매번 실패하는 것을 확인했다 — npm 전역 설치가 만든 `codex.cmd`를
+`subprocess.Popen()`이 직접 실행하지 못하는 것이 정확히 재현됨(네이티브 설치본인 Claude Code
+CLI는 같은 파일럿에서 정상 동작). 이는 코드 결함이 아니라 §7.1에서 이미 예상한 "Windows
+전용 제약이 이식하지 않은 우회 코드 없이는 그대로 나타난다"는 것의 실측 확인이다 — Ubuntu에서
+`.cmd` 문제 자체가 없다는 결론은 여전히 실제 Ubuntu 서버에서 검증해야 하지만(Windows에서
+실패했다는 사실 자체가 "Windows 우회 코드가 필요했던 이유"를 다시 한번 실측으로 뒷받침한다),
+"이 우회를 뺀 코드가 Ubuntu에서 npm CLI를 정상 실행하는지"는 아직 별도로 확인되지 않았다.
+
 ### 7.2 서브프로세스 타임아웃 시 프로세스 그룹 종료
 
 `subprocess.Popen(start_new_session=True, ...)`으로 새 세션(POSIX: `setsid`)을 만들어 띄우고,

@@ -190,5 +190,30 @@ Flask+PostgreSQL 재개발 Phase 0~6 완료, Phase 7(테스트/배포 구성/문
   worker 데몬 통합 테스트, 동시성 상한 실측 테스트 포함 95개 통과.
 - **Phase 5**: Flask Blueprint API 계층 — 관리자 CRUD 포함 160개 테스트 통과.
 - **Phase 6**: 프론트엔드 폴링 전환 — 브라우저에서 실제 트리거→폴링→완료 흐름 확인 완료.
-- **다음 단계**: Phase 7(systemd 유닛/문서 마무리 — 이 커밋에서 진행 중), Phase 8(실 Ubuntu
-  서버에서의 CLI 파일럿 재검증 — 사용자의 명시적 실측 승인 후에만 진행).
+- **Phase 7**: systemd 유닛 2개, CLAUDE.md/README/docs 전체 작성, 웹 앱 강제 재시작에도 worker
+  데몬 배치가 안 끊기는 것을 실측 확인.
+- **Phase 8 (부분 완료, 2026-07-16, 이 Windows PC에서 소규모 실측)**: `MOCK_LLM=false`로 실제
+  프롬프트 2개 x Claude Code CLI/Codex CLI를 이 새 아키텍처(트리거→worker 데몬→실 CLI
+  서브프로세스→파싱→집계)로 실행. 결과:
+  - **Claude Code CLI: 2/2 성공.** 실제 응답 텍스트, 실비용(`$0.057641`/`$0.103988`) 정상 기록,
+    citation 정규식 폴백이 실제 응답에서 URL 7개를 정확히 추출(등록 안 된 도메인은
+    `matched_brand_id=NULL`로 정확히 처리) — 파이프라인 전체가 실제 응답으로 end-to-end 동작함을
+    확인. 두 프롬프트 모두 추적 브랜드가 실제로 언급되지 않아 `mention` 행은 0건(정상 — 실제
+    LLM 응답이 그 브랜드를 언급하지 않은 것뿐, 파싱 실패가 아님).
+  - **Codex CLI: 2/2 실패, 원인 2가지 확인.** ① `FileNotFoundError: [WinError 2]` — npm으로 설치된
+    `codex.cmd`(Windows 셸 스크립트)를 `subprocess.Popen(["codex", ...])`이 직접 실행하지 못함.
+    이 재개발은 Ubuntu 전용이라 Windows `.cmd` 우회 코드(`_adapt_for_windows()`)를 의도적으로
+    이식하지 않았으므로(docs/llm_clis.md §7.1) **예상된 실패이지 버그가 아니다** — Ubuntu
+    서버(npm이 실행 가능한 셸 스크립트를 만듦)에서는 재현되지 않아야 하며, 이는 여전히 실측
+    확인이 필요하다. ② 이 계정의 Codex 사용량 한도가 이미 소진되어 있어(2026-08-12 KST
+    13:35 리셋 예정 — CLI 자체 에러 메시지 기준) 위 ①과 무관하게 어차피 이번 계정으로는
+    당장 실호출이 안 됐을 것 — docs/risk_checklist.md §5에 반영.
+  - **Gemini CLI: 미실행.** 헤드리스 실행 시 브라우저 인증 재확인 프롬프트(`Opening
+    authentication page... [Y/n]`)가 떠서 캐시된 자격증명이 없거나 만료된 상태로 확인됨 —
+    사람이 대화형으로 `gemini` 재로그인을 완료해야 다음 파일럿에서 시도 가능(docs/operations.md
+    §3).
+  - **결론**: 새 Flask+PostgreSQL+worker 데몬 아키텍처 자체는 실제 CLI 응답으로 정상 동작함을
+    확인(가장 중요한 목표 달성). Windows `.cmd` 비호환/실제 Ubuntu 프로세스 그룹 kill 검증은
+    여전히 미완료로 남아 실제 Ubuntu 배포 서버에서 재확인이 필요하다.
+- **다음 단계**: 실제 Ubuntu 서버 배포 후 Phase 8 나머지 항목(Codex/Gemini CLI 정상 실행 확인,
+  cron 실제 트리거, systemd 재시작 중 배치 무중단 확인) 재검증.
