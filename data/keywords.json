@@ -1,113 +1,113 @@
 {
-  "_note": "이 파일은 seed 스크립트(backend/app/db/seed.py)가 'prompts' 배열을 읽어 prompt 테이블을 채우는 데 쓰는 초기 데이터다. schema: intent는 자유 텍스트 카테고리, target/priority/language는 backend/app/models/enums.py의 Target/Priority/Language 값 중 하나여야 한다. 이미 실행 이력이 쌓인 프롬프트의 text는 절대 수정하지 말 것 — CLAUDE.md 규칙대로 새 버전을 추가해야 한다. seed 스크립트는 동일 text가 이미 있으면 건너뛰므로 여러 번 실행해도 안전하다(idempotent). 2026-07-16: K뷰티 브랜드 해외 진출 물류 주제로 전체 교체(기존 10개는 DB에서 비활성화, 새 서버 seed 기준은 이 16개).",
+  "_note": "이 파일은 seed 스크립트(backend/app/db/seed.py)가 'prompts' 배열을 읽어 prompt 테이블을 채우는 데 쓰는 초기 데이터다. schema: intent는 자유 텍스트 카테고리, target/priority/language는 backend/app/models/enums.py의 Target/Priority/Language 값 중 하나여야 한다. 이미 실행 이력이 쌓인 프롬프트의 text는 절대 수정하지 말 것 — CLAUDE.md 규칙대로 새 버전을 추가해야 한다. seed 스크립트는 동일 text가 이미 있으면 건너뛰므로 여러 번 실행해도 안전하다(idempotent). 2026-07-16: K뷰티 브랜드 해외 진출 물류 주제로 전체 교체(기존 10개는 DB에서 비활성화). 2026-07-27: 동일 16개 주제를 질문형 문구로 재작성(DB에서는 버전 2로 new prompt 생성 + 기존 버전 비활성화, supersedes_id로 이력 연결) — 이 seed 파일은 신규 설치 기준이라 질문형 문구만 담는다.",
   "prompts": [
     {
-      "text": "K뷰티 브랜드 해외 진출 물류 인프라 구축 전략",
+      "text": "K뷰티 브랜드 해외 진출 물류 인프라 구축은 어떻게 접근해야 하나요?",
       "intent": "해외진출 전략",
       "target": "c-level",
       "priority": "High",
       "language": "ko"
     },
     {
-      "text": "화장품 수출 다국가 확장 시 물류 거점 선정 기준",
+      "text": "화장품 수출 다국가 확장 시 물류 거점 선정 기준이 무엇인가요?",
       "intent": "물류 거점 선정",
       "target": "manager",
       "priority": "High",
       "language": "ko"
     },
     {
-      "text": "K뷰티 D2C 전환에 따른 풀필먼트 전략",
+      "text": "K뷰티 D2C 전환에 따른 풀필먼트는 어떻게 접근해야 하나요?",
       "intent": "풀필먼트 전략",
       "target": "manager",
       "priority": "High",
       "language": "ko"
     },
     {
-      "text": "화장품 수출 물류 파트너 선정 기준",
+      "text": "화장품 수출 물류 파트너 선정 기준이 무엇인가요?",
       "intent": "파트너 선정",
       "target": "manager",
       "priority": "High",
       "language": "ko"
     },
     {
-      "text": "K뷰티 성수기 물동 급증 대응",
+      "text": "K뷰티 브랜드가 성수기(블프·크리스마스) 물동 급증에 대응하려면 어떻게 물류를 설계하나요?",
       "intent": "성수기 대응",
       "target": "practitioner",
       "priority": "Medium",
       "language": "ko"
     },
     {
-      "text": "화장품 미국 수출 물류 비용 구조",
+      "text": "화장품을 미국에 수출할 때 MoCRA 등록·라벨·물류 비용을 어떻게 계산하나요?",
       "intent": "비용 구조",
       "target": "manager",
       "priority": "Medium",
       "language": "ko"
     },
     {
-      "text": "화장품 해외 창고 보관과 국내 직배송 비교",
+      "text": "화장품 해외 창고 보관과 국내 직배송 어느 쪽이 유리한가요?",
       "intent": "보관/배송 방식 비교",
       "target": "practitioner",
       "priority": "Medium",
       "language": "ko"
     },
     {
-      "text": "뷰티 제품 항공 특송과 해상 LCL 비용 비교",
+      "text": "뷰티 제품 항공 특송과 해상 LCL 비용 어느 쪽이 유리한가요?",
       "intent": "운송수단 비교",
       "target": "practitioner",
       "priority": "Medium",
       "language": "ko"
     },
     {
-      "text": "화장품 수출 물류 리드타임 단축",
+      "text": "화장품 수출 리드타임을 단축하려면 어떤 물류·통관 최적화가 필요한가요?",
       "intent": "리드타임 단축",
       "target": "practitioner",
       "priority": "Medium",
       "language": "ko"
     },
     {
-      "text": "K뷰티 아마존 입고 물류 대행 업체 평가 기준",
+      "text": "K뷰티 아마존 입고 물류 대행 업체 평가 기준이 무엇인가요?",
       "intent": "대행업체 평가",
       "target": "manager",
       "priority": "High",
       "language": "ko"
     },
     {
-      "text": "화장품 미국 수출 MoCRA 등록 절차",
+      "text": "화장품 미국 수출 MoCRA 등록 절차가 어떻게 되나요?",
       "intent": "규제/인증",
       "target": "practitioner",
       "priority": "High",
       "language": "ko"
     },
     {
-      "text": "화장품 수출 시 성분 규제 확인 방법",
+      "text": "화장품 수출 시 성분 규제 확인은 어떻게 하나요?",
       "intent": "규제/인증",
       "target": "practitioner",
       "priority": "High",
       "language": "ko"
     },
     {
-      "text": "화장품 소량 항공 수출 비용 계산",
+      "text": "화장품 소량 물량을 항공으로 수출할 때 부피중량 기준 비용이 어떻게 계산되나요?",
       "intent": "비용 계산",
       "target": "junior",
       "priority": "Low",
       "language": "ko"
     },
     {
-      "text": "화장품 액체류 항공운송 제한 규정",
+      "text": "화장품 액체류 항공운송 제한 규정이 어떻게 되나요?",
       "intent": "운송 규정",
       "target": "junior",
       "priority": "Low",
       "language": "ko"
     },
     {
-      "text": "화장품 수출 원산지증명서 발급 절차",
+      "text": "화장품 수출 원산지증명서 발급 절차가 어떻게 되나요?",
       "intent": "서류 절차",
       "target": "junior",
       "priority": "Low",
       "language": "ko"
     },
     {
-      "text": "K뷰티 수출 물류 대행 추천",
+      "text": "K뷰티 수출 물류 대행 어디가 좋을까요?",
       "intent": "업체 추천",
       "target": "manager",
       "priority": "High",
