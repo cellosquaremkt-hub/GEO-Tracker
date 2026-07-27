@@ -194,29 +194,46 @@ class WeeklyBatchWorker:
                 )
                 session.commit()
                 brands = load_brand_infos(session)
-
-            # 새로 제출할 잡이 있는지와 무관하게 매 폴링마다 확인한다 — 다른 배치가 이번 폴링
-            # 직전에 완료됐을 수 있기 때문이다.
-            self._aggregate_completed_batches(session)
         finally:
             session.close()
 
-        if not rows:
-            return 0
-
-        sentiment_classifier = get_default_sentiment_classifier()
-        for run_id, provider_name in rows:
-            executor = self._executors.get(provider_name)
-            if executor is None:
-                logger.error(
-                    "알 수 없는 프로바이더 '%s' (run_id=%d) — 실행하지 않습니다.",
-                    provider_name,
+        # 잡 제출을 집계보다 먼저 한다 — 집계(_aggregate_completed_batches)에서 예외가 나도
+        # 이미 RUNNING으로 표시해 커밋한 잡들은 반드시 실행에 제출되어야 한다. 순서가 바뀌면
+        # (집계 실패 → 예외 전파 → 아래 제출 코드가 아예 실행 안 됨) RUNNING으로 표시된 채
+        # 영원히 멈춘 잡이 남는다 — 2026-07-16 실측으로 이 실패 모드를 직접 확인했다(테스트용
+        # batch_id가 weekly_snapshot.week_label 컬럼 길이 제한을 넘겨 매 폴링마다 집계가
+        # 예외를 던졌고, 그 뒤에 있던 새 잡 제출 코드가 계속 실행되지 못해 새로 트리거한 배치
+        # 전체가 RUNNING 상태로 멈춰 있었다).
+        if rows:
+            sentiment_classifier = get_default_sentiment_classifier()
+            for run_id, provider_name in rows:
+                executor = self._executors.get(provider_name)
+                if executor is None:
+                    logger.error(
+                        "알 수 없는 프로바이더 '%s' (run_id=%d) — 실행하지 않습니다.",
+                        provider_name,
+                        run_id,
+                    )
+                    continue
+                executor.submit(
+                    _run_single_execution,
+                    self._session_factory,
                     run_id,
+                    brands,
+                    sentiment_classifier,
                 )
-                continue
-            executor.submit(
-                _run_single_execution, self._session_factory, run_id, brands, sentiment_classifier
-            )
+
+        # 새로 제출할 잡이 있는지와 무관하게 매 폴링마다 확인한다 — 다른 배치가 이번 폴링
+        # 직전에 완료됐을 수 있기 때문이다. 이 호출 자체가 실패해도(위 주석 참조) 위의 잡
+        # 제출에는 이미 영향을 줄 수 없다 — 그래도 다음 폴링을 계속 이어가기 위해 감싼다.
+        agg_session = self._session_factory()
+        try:
+            self._aggregate_completed_batches(agg_session)
+        except Exception:
+            logger.exception("배치 집계 중 예외 발생 — 다음 폴링에서 계속 시도한다")
+        finally:
+            agg_session.close()
+
         return len(rows)
 
     def _aggregate_completed_batches(self, session: Session) -> None:
@@ -226,6 +243,10 @@ class WeeklyBatchWorker:
         않는다 — daemon 재시작 후에도(메모리 캐시가 비어도) 안전하게 동작한다: 재시작 직후엔
         모든 완료 배치가 "아직 집계 안 됨"으로 취급되어 한 번 더 집계될 뿐, 결과는 delete+insert라
         멱등적이다.
+
+        배치 하나의 집계 실패가 다른 배치의 집계를 막지 않도록 각각 독립적으로 시도한다 —
+        실패한 배치는 다음 폴링에서 다시 시도된다(단, 원인이 데이터 자체의 문제라면 사람이
+        고칠 때까지 계속 실패로 로그만 쌓인다 — 무한 재시도 자체를 막지는 않는다).
         """
         pending_or_running = (
             select(ExecutionRun.batch_id)
@@ -242,7 +263,12 @@ class WeeklyBatchWorker:
             done_count = status.success + status.failed
             if self._last_aggregated_done_count.get(batch_id) == done_count:
                 continue
-            aggregate_week(session, batch_id)
+            try:
+                aggregate_week(session, batch_id)
+            except Exception:
+                session.rollback()  # 실패한 트랜잭션을 정리해야 다음 batch_id 처리를 계속할 수 있다
+                logger.exception("batch_id=%s 집계 실패 — 다른 배치 집계는 계속 진행한다", batch_id)
+                continue
             self._last_aggregated_done_count[batch_id] = done_count
             logger.info(
                 "batch_id=%s 집계 완료: success=%d failed=%d",

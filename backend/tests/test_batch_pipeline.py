@@ -5,6 +5,7 @@ import subprocess
 import sys
 import threading
 import time
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -350,6 +351,50 @@ class TestReaggregationUpsert:
 
         assert first_count == 6
         assert second_count == first_count
+
+
+class TestAggregationFailureIsolation:
+    """실측 회귀(2026-07-16): 어떤 배치의 집계(aggregate_week)가 예외를 던지면, 그 예외가
+    poll_once() 밖으로 전파돼 "이번 폴링에서 새로 RUNNING으로 표시한 잡을 executor에 제출하는
+    코드"까지 실행되지 못하게 막았다 — RUNNING으로 커밋은 됐지만 영원히 실행되지 않는 잡이
+    남는 실패 모드였다. 원인이 된 실제 상황: batch_id가 weekly_snapshot.week_label 컬럼
+    (VARCHAR(20))보다 길어 집계 시 DataError가 발생했다."""
+
+    def test_broken_batch_aggregation_does_not_block_other_batches_from_running(
+        self, session_factory: sessionmaker[Session]
+    ) -> None:
+        _seed_minimal_dataset(session_factory)
+
+        # week_label(VARCHAR(20))보다 긴 batch_id를 가진, 이미 완료된 "고장난" 배치를 만든다 —
+        # _aggregate_completed_batches()가 이 batch_id를 집계 대상으로 보고 aggregate_week()를
+        # 호출하면 weekly_snapshot 삽입 단계에서 DataError가 나야 한다.
+        oversized_batch_id = "x" * 30
+        with session_factory() as session:
+            prompt_id = session.execute(select(Prompt.id).limit(1)).scalar_one()
+            provider_id = session.execute(select(LLMProvider.id).limit(1)).scalar_one()
+            session.add(
+                ExecutionRun(
+                    batch_id=oversized_batch_id,
+                    executed_at=datetime.now(UTC),
+                    prompt_id=prompt_id,
+                    llm_provider_id=provider_id,
+                    repeat_index=0,
+                    status=ExecutionStatus.SUCCESS,
+                    raw_response="dummy",
+                )
+            )
+            session.commit()
+
+        # 정상적인 새 배치를 트리거한다 — 고장난 배치와 무관하게 끝까지 처리되어야 한다.
+        with session_factory() as session:
+            triggered = trigger_batch(session)
+
+        status = _run_worker_to_completion(session_factory, triggered.batch_id)
+
+        assert status.pending == 0
+        assert status.running == 0
+        assert status.success == 4
+        assert status.failed == 0
 
 
 class TestCliFailureIsolation:
