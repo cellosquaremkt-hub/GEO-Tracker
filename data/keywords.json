@@ -1,75 +1,117 @@
 {
-  "_note": "이 파일은 placeholder다. seed 스크립트(backend/app/db/seed.py)가 이 파일의 'prompts' 배열을 읽어 prompt 테이블을 채운다. 실데이터로 교체하려면: 1) 이 파일을 실제 키워드 목록으로 덮어쓴다 (schema는 아래 각 항목의 필드를 그대로 따른다). 2) intent는 자유 텍스트 카테고리, target/priority/language는 backend/app/models/enums.py의 Target/Priority/Language 값 중 하나여야 한다. 3) 이미 실행 이력이 쌓인 프롬프트의 text는 절대 수정하지 말 것 — CLAUDE.md 규칙대로 새 버전을 추가해야 한다. 4) seed 스크립트는 동일 text가 이미 있으면 건너뛰므로 여러 번 실행해도 안전하다(idempotent).",
+  "_note": "이 파일은 seed 스크립트(backend/app/db/seed.py)가 'prompts' 배열을 읽어 prompt 테이블을 채우는 데 쓰는 초기 데이터다. schema: intent는 자유 텍스트 카테고리, target/priority/language는 backend/app/models/enums.py의 Target/Priority/Language 값 중 하나여야 한다. 이미 실행 이력이 쌓인 프롬프트의 text는 절대 수정하지 말 것 — CLAUDE.md 규칙대로 새 버전을 추가해야 한다. seed 스크립트는 동일 text가 이미 있으면 건너뛰므로 여러 번 실행해도 안전하다(idempotent). 2026-07-16: K뷰티 브랜드 해외 진출 물류 주제로 전체 교체(기존 10개는 DB에서 비활성화, 새 서버 seed 기준은 이 16개).",
   "prompts": [
     {
-      "text": "How do I calculate the ROI of adopting a digital forwarding platform?",
-      "intent": "AI Strategy",
-      "target": "c-level",
-      "priority": "High",
-      "language": "en"
-    },
-    {
-      "text": "우리 물류 조직에서 에이전틱 AI로 자동화할 수 있는 업무는 무엇인가요?",
-      "intent": "AI Strategy",
+      "text": "K뷰티 브랜드 해외 진출 물류 인프라 구축 전략",
+      "intent": "해외진출 전략",
       "target": "c-level",
       "priority": "High",
       "language": "ko"
     },
     {
-      "text": "What criteria matter most in an RFP for a logistics AI solution?",
-      "intent": "AI Strategy",
+      "text": "화장품 수출 다국가 확장 시 물류 거점 선정 기준",
+      "intent": "물류 거점 선정",
       "target": "manager",
       "priority": "High",
-      "language": "en"
-    },
-    {
-      "text": "What is a bill of lading and why does it matter?",
-      "intent": "B/L 기초",
-      "target": "junior",
-      "priority": "Low",
-      "language": "en"
-    },
-    {
-      "text": "선하증권(B/L)과 화물운송장의 차이는 무엇인가요?",
-      "intent": "B/L 기초",
-      "target": "junior",
-      "priority": "Low",
       "language": "ko"
     },
     {
-      "text": "How do I switch freight forwarders smoothly without disrupting operations?",
-      "intent": "BOFU 도입",
+      "text": "K뷰티 D2C 전환에 따른 풀필먼트 전략",
+      "intent": "풀필먼트 전략",
       "target": "manager",
-      "priority": "Medium",
-      "language": "en"
-    },
-    {
-      "text": "엔터프라이즈급 화물 운송 파트너를 선택할 때 어떤 레퍼런스와 사례를 확인해야 하나요?",
-      "intent": "BOFU 평가",
-      "target": "manager",
-      "priority": "Medium",
+      "priority": "High",
       "language": "ko"
     },
     {
-      "text": "What SLA expectations should I set with an enterprise freight forwarder?",
-      "intent": "BOFU 도입",
+      "text": "화장품 수출 물류 파트너 선정 기준",
+      "intent": "파트너 선정",
+      "target": "manager",
+      "priority": "High",
+      "language": "ko"
+    },
+    {
+      "text": "K뷰티 성수기 물동 급증 대응",
+      "intent": "성수기 대응",
       "target": "practitioner",
       "priority": "Medium",
-      "language": "en"
+      "language": "ko"
     },
     {
-      "text": "물류 회사 영업 담당자가 고객에게 AI 기반 화주 서비스를 제안할 때 강조해야 할 차별점은 무엇인가요?",
-      "intent": "영업 지원",
-      "target": "seller",
+      "text": "화장품 미국 수출 물류 비용 구조",
+      "intent": "비용 구조",
+      "target": "manager",
       "priority": "Medium",
       "language": "ko"
     },
     {
-      "text": "What are the major AI trends shaping enterprise logistics through 2030?",
-      "intent": "AI Strategy",
-      "target": "c-level",
+      "text": "화장품 해외 창고 보관과 국내 직배송 비교",
+      "intent": "보관/배송 방식 비교",
+      "target": "practitioner",
+      "priority": "Medium",
+      "language": "ko"
+    },
+    {
+      "text": "뷰티 제품 항공 특송과 해상 LCL 비용 비교",
+      "intent": "운송수단 비교",
+      "target": "practitioner",
+      "priority": "Medium",
+      "language": "ko"
+    },
+    {
+      "text": "화장품 수출 물류 리드타임 단축",
+      "intent": "리드타임 단축",
+      "target": "practitioner",
+      "priority": "Medium",
+      "language": "ko"
+    },
+    {
+      "text": "K뷰티 아마존 입고 물류 대행 업체 평가 기준",
+      "intent": "대행업체 평가",
+      "target": "manager",
       "priority": "High",
-      "language": "en"
+      "language": "ko"
+    },
+    {
+      "text": "화장품 미국 수출 MoCRA 등록 절차",
+      "intent": "규제/인증",
+      "target": "practitioner",
+      "priority": "High",
+      "language": "ko"
+    },
+    {
+      "text": "화장품 수출 시 성분 규제 확인 방법",
+      "intent": "규제/인증",
+      "target": "practitioner",
+      "priority": "High",
+      "language": "ko"
+    },
+    {
+      "text": "화장품 소량 항공 수출 비용 계산",
+      "intent": "비용 계산",
+      "target": "junior",
+      "priority": "Low",
+      "language": "ko"
+    },
+    {
+      "text": "화장품 액체류 항공운송 제한 규정",
+      "intent": "운송 규정",
+      "target": "junior",
+      "priority": "Low",
+      "language": "ko"
+    },
+    {
+      "text": "화장품 수출 원산지증명서 발급 절차",
+      "intent": "서류 절차",
+      "target": "junior",
+      "priority": "Low",
+      "language": "ko"
+    },
+    {
+      "text": "K뷰티 수출 물류 대행 추천",
+      "intent": "업체 추천",
+      "target": "manager",
+      "priority": "High",
+      "language": "ko"
     }
   ]
 }
