@@ -16,8 +16,9 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.brand import Brand
-from app.models.enums import ExecutionStatus, Priority, Sentiment
+from app.models.enums import BrandType, ExecutionStatus, Priority, Sentiment
 from app.models.execution import ExecutionRun, Mention
+from app.models.llm_provider import LLMProvider
 from app.models.prompt import Prompt
 from app.services.dashboard_service import compute_own_sov_sum
 
@@ -76,8 +77,18 @@ def compute_weekly_report(session: Session, week: str) -> WeeklyReport:
     )
     own_total_sov = compute_own_sov_sum(session, week, own_brand_ids) or Decimal("0")
 
+    # brand_type=OWN_BRAND 프롬프트는 "미노출/경쟁사 우위" 판단 대상에서 뺀다 — 브랜드명을
+    # 직접 묻는 질문이라 이 두 섹션의 전제(시장 점유율 경쟁 서사)와 맞지 않는다. 이 프롬프트들의
+    # 결과는 get_own_brand_answers()의 별도 섹션에서만 확인한다.
     active_prompts = (
-        session.execute(select(Prompt).where(Prompt.is_active.is_(True))).scalars().all()
+        session.execute(
+            select(Prompt).where(
+                Prompt.is_active.is_(True),
+                Prompt.brand_type.is_distinct_from(BrandType.OWN_BRAND),
+            )
+        )
+        .scalars()
+        .all()
     )
 
     mention_rows = session.execute(
@@ -178,3 +189,67 @@ def compute_weekly_report(session: Session, week: str) -> WeeklyReport:
         vulnerable_prompts=vulnerable,
         competitor_advantage_prompts=competitor_advantage,
     )
+
+
+@dataclass(frozen=True)
+class OwnBrandAnswer:
+    """brand_type=OWN_BRAND 프롬프트 하나의 실행 결과 하나 — SOV 집계에 안 들어가므로 별도로
+    "브랜드명을 직접 물었을 때 실제로 그 브랜드를 언급/설명했는가"만 확인하는 품질 체크용이다."""
+
+    execution_run_id: int
+    prompt_id: int
+    prompt_text: str
+    llm_provider_name: str
+    repeat_index: int
+    own_brand_mentioned: bool
+    own_brand_names_mentioned: list[str]
+    sentiment: Sentiment | None
+
+
+def get_own_brand_answers(session: Session, week: str) -> list[OwnBrandAnswer]:
+    """brand_type=OWN_BRAND 프롬프트의 이번 주 성공 실행 결과 — weekly_snapshot SOV와는
+    완전히 분리된 별도 조회다(aggregation.py에서도 이 브랜드 타입은 제외하고 계산한다)."""
+    runs = (
+        session.execute(
+            select(ExecutionRun, Prompt, LLMProvider)
+            .join(Prompt, Prompt.id == ExecutionRun.prompt_id)
+            .join(LLMProvider, LLMProvider.id == ExecutionRun.llm_provider_id)
+            .where(
+                ExecutionRun.batch_id == week,
+                ExecutionRun.status == ExecutionStatus.SUCCESS,
+                Prompt.brand_type == BrandType.OWN_BRAND,
+            )
+            .order_by(Prompt.id, ExecutionRun.repeat_index)
+        )
+        .unique()
+        .all()
+    )
+    if not runs:
+        return []
+
+    run_ids = [run.id for run, _, _ in runs]
+    own_mentions_by_run: dict[int, list[tuple[str, Sentiment]]] = defaultdict(list)
+    for execution_run_id, brand_name, sentiment in session.execute(
+        select(Mention.execution_run_id, Brand.name, Mention.sentiment)
+        .join(Brand, Brand.id == Mention.brand_id)
+        .where(Mention.execution_run_id.in_(run_ids), Brand.is_own.is_(True))
+        .order_by(Mention.mention_order)
+    ).all():
+        own_mentions_by_run[execution_run_id].append((brand_name, sentiment))
+
+    answers: list[OwnBrandAnswer] = []
+    for run, prompt, provider in runs:
+        own_mentions = own_mentions_by_run.get(run.id, [])
+        answers.append(
+            OwnBrandAnswer(
+                execution_run_id=run.id,
+                prompt_id=prompt.id,
+                prompt_text=prompt.text,
+                llm_provider_name=provider.name,
+                repeat_index=run.repeat_index,
+                own_brand_mentioned=bool(own_mentions),
+                own_brand_names_mentioned=[name for name, _ in own_mentions],
+                sentiment=own_mentions[0][1] if own_mentions else None,
+            )
+        )
+    return answers

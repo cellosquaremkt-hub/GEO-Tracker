@@ -7,7 +7,16 @@ from datetime import UTC, datetime
 from sqlalchemy.orm import Session
 
 from app.models.brand import Brand
-from app.models.enums import ExecutionStatus, Language, Priority, Sentiment, Target
+from app.models.enums import (
+    BrandType,
+    ExecutionStatus,
+    FunnelIntent,
+    Language,
+    Priority,
+    PromptPhrasing,
+    Sentiment,
+    Target,
+)
 from app.models.execution import ExecutionRun, Mention
 from app.models.llm_provider import LLMProvider
 from app.models.prompt import Prompt
@@ -23,6 +32,11 @@ class TestExportCsv:
             target=Target.MANAGER,
             priority=Priority.MEDIUM,
             language=Language.KO,
+            industry="K-Beauty·화장품",
+            funnel_intent=FunnelIntent.VENDOR_SELECTION,
+            brand_type=BrandType.NON_BRAND_LONGTAIL,
+            phrasing=PromptPhrasing.QUESTION,
+            topic_group="test.xlsx:2",
         )
         db_session.add_all([brand, provider, prompt])
         db_session.flush()
@@ -60,6 +74,12 @@ class TestExportCsv:
         assert rows[0]["sentiment"] == "positive"
         assert rows[0]["is_own"] == "True"
         assert rows[0]["prompt_id"] == str(prompt.id)
+        assert rows[0]["industry"] == "K-Beauty·화장품"
+        assert rows[0]["funnel_intent"] == "vendor_selection"
+        assert rows[0]["brand_type"] == "non_brand_longtail"
+        assert rows[0]["phrasing"] == "question"
+        assert rows[0]["topic_group"] == "test.xlsx:2"
+        assert rows[0]["prompt_source"] == "manual"
 
     def test_excludes_failed_runs(self, client, db_session: Session) -> None:
         provider = LLMProvider(name="claude-code-cli", model_string="sonnet")

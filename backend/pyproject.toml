@@ -12,6 +12,7 @@ dependencies = [
     "pydantic>=2.6.0",
     "pydantic-settings>=2.2.1",
     "gunicorn>=22.0.0",
+    "openpyxl>=3.1.0",
 ]
 
 [project.optional-dependencies]
@@ -36,7 +37,9 @@ select = ["E", "F", "I", "UP", "B"]
 
 [tool.ruff.lint.per-file-ignores]
 # Alembic 자동 생성 마이그레이션은 손으로 줄바꿈하지 않는다 (autogenerate 재실행 시 다시 깨짐).
-"alembic/versions/*.py" = ["E501"]
+# I001/UP007/UP035는 alembic 자체 리비전 템플릿(Union/Sequence, import 순서)이 매번 만들어내는
+# 보일러플레이트라 우리 코드 스타일 문제가 아니다 — 매 리비전마다 손으로 고치지 않는다.
+"alembic/versions/*.py" = ["E501", "I001", "UP007", "UP035"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -126,3 +126,152 @@ class TestDeactivatePrompt:
     def test_deactivate_unknown_prompt_404(self, client) -> None:
         response = client.put("/prompts/999999/deactivate", headers=ADMIN_HEADERS)
         assert response.status_code == 404
+
+
+class TestDeactivateAllActive:
+    def test_deactivates_every_active_prompt(self, client, db_session: Session) -> None:
+        active_a = Prompt(
+            text="활성 A",
+            intent="Test",
+            target=Target.MANAGER,
+            priority=Priority.MEDIUM,
+            language=Language.KO,
+            is_active=True,
+        )
+        active_b = Prompt(
+            text="활성 B",
+            intent="Test",
+            target=Target.MANAGER,
+            priority=Priority.MEDIUM,
+            language=Language.KO,
+            is_active=True,
+        )
+        already_inactive = Prompt(
+            text="이미 비활성",
+            intent="Test",
+            target=Target.MANAGER,
+            priority=Priority.MEDIUM,
+            language=Language.KO,
+            is_active=False,
+        )
+        db_session.add_all([active_a, active_b, already_inactive])
+        db_session.flush()
+
+        response = client.post("/prompts/deactivate-all", headers=ADMIN_HEADERS)
+
+        assert response.status_code == 200
+        assert response.get_json()["deactivated_count"] == 2
+        db_session.refresh(active_a)
+        db_session.refresh(active_b)
+        assert active_a.is_active is False
+        assert active_b.is_active is False
+
+    def test_requires_admin_key(self, client) -> None:
+        response = client.post("/prompts/deactivate-all")
+        assert response.status_code == 401
+
+
+class TestImportExcelEndpoint:
+    def test_requires_admin_key(self, client) -> None:
+        response = client.post("/prompts/import-excel")
+        assert response.status_code == 401
+
+    def test_missing_file_returns_400(self, client) -> None:
+        response = client.post("/prompts/import-excel", headers=ADMIN_HEADERS)
+        assert response.status_code == 400
+
+    def test_valid_file_creates_prompts(self, client) -> None:
+        import io
+
+        import openpyxl
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(
+            [
+                "LN",
+                "산업",
+                "서비스라인",
+                "트레이드레인",
+                "직급(태그)",
+                "퍼널인텐트",
+                "브랜드성",
+                "V1_검색어형",
+                "V2_질문형",
+            ]
+        )
+        ws.append(
+            [
+                "KR",
+                "K-Beauty·화장품",
+                "구분없음",
+                "구분없음",
+                "실무자",
+                "정보탐색",
+                "비브랜드 롱테일",
+                "화장품 리드타임 단축",
+                "화장품 리드타임 단축은 어떻게 하나요?",
+            ]
+        )
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+
+        response = client.post(
+            "/prompts/import-excel",
+            headers=ADMIN_HEADERS,
+            data={"file": (buffer, "upload.xlsx")},
+            content_type="multipart/form-data",
+        )
+
+        assert response.status_code == 201
+        body = response.get_json()
+        assert body["rows_processed"] == 1
+        assert body["prompts_created"] == 2
+
+    def test_invalid_row_returns_400_with_row_errors(self, client) -> None:
+        import io
+
+        import openpyxl
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(
+            [
+                "LN",
+                "산업",
+                "서비스라인",
+                "트레이드레인",
+                "직급(태그)",
+                "퍼널인텐트",
+                "브랜드성",
+                "V1_검색어형",
+                "V2_질문형",
+            ]
+        )
+        ws.append(
+            [
+                "KR",
+                "-",
+                "구분없음",
+                "구분없음",
+                "알수없음",
+                "정보탐색",
+                "비브랜드 롱테일",
+                "V1",
+                "V2?",
+            ]
+        )
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+
+        response = client.post(
+            "/prompts/import-excel",
+            headers=ADMIN_HEADERS,
+            data={"file": (buffer, "bad.xlsx")},
+            content_type="multipart/form-data",
+        )
+
+        assert response.status_code == 400
+        assert response.get_json()["row_errors"]

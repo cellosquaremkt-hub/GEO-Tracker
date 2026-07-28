@@ -5,14 +5,16 @@
       "name": "frontend",
       "runtimeExecutable": "python",
       "runtimeArgs": ["-m", "http.server", "5500", "--directory", "frontend"],
-      "port": 5500
+      "port": 5500,
+      "autoPort": false
     },
     {
       "name": "backend",
       "runtimeExecutable": "backend/.venv/Scripts/python.exe",
       "runtimeArgs": ["-m", "flask", "--app", "app.main", "run", "--port", "8000"],
       "port": 8000,
-      "cwd": "backend"
+      "cwd": "backend",
+      "autoPort": false
     }
   ]
 }

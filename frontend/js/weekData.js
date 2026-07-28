@@ -1,11 +1,10 @@
 // 여러 화면(대시보드 Top keywords, 리포트 감정 분석, 브랜드 인용 출처 분석)이 공통으로 쓰는
-// "이번 주 프롬프트별 상세(언급/감정/인용) 전체"를 한 번만 모아서 캐시한다.
+// "이번 주 전체 mention"을 한 번만 모아서 캐시한다.
 //
-// 백엔드에 "주간 전체 언급 집계" 같은 별도 엔드포인트가 없으므로(작업 지시: API 시그니처 변경
-// 금지), 활성 프롬프트 목록(GET /prompts) + 프롬프트별 상세(GET /prompts/{id}/detail)를 N+1로
-// 모아서 프론트에서 직접 펼친다. 활성 프롬프트가 수십 개 수준인 MVP 규모를 전제로 한다
-// (plan.md — "프롬프트 수백~수천 조합"까지 커지면 백엔드에 집계 엔드포인트를 추가하는 편이
-// 낫다 — 지금은 그 정도 규모가 아니다).
+// GET /mentions(백엔드 export_service.fetch_mention_rows 재사용) 한 번으로 그 주의 모든
+// mention을 가져온다 — 활성 프롬프트마다 GET /prompts/{id}/detail을 개별 호출하던 N+1 패턴은
+// 활성 프롬프트가 702개로 늘어난 뒤(엑셀 업로드 기능 도입) 요청이 큐에 쌓여 리포트/감정 분석/
+// 대시보드 로딩이 수십 초씩 걸리는 문제로 이어져 제거했다(2026-07-28 브라우저 검증 중 발견).
 import * as api from "./api.js";
 
 const cache = new Map();
@@ -15,36 +14,21 @@ export async function loadWeekMentions(week) {
   if (cache.has(key)) return cache.get(key);
 
   const promise = (async () => {
-    const prompts = await api.listPrompts({ is_active: true });
-    const details = await Promise.all(
-      prompts.map((p) => api.getPromptDetail(p.id, week).catch(() => null))
-    );
+    const mentions = await api.getMentions(week);
+    const rows = mentions.map((m) => ({
+      promptId: m.prompt_id,
+      promptText: m.prompt_text,
+      intent: m.prompt_intent,
+      providerName: m.llm_provider_name,
+      executionRunId: m.execution_run_id,
+      brandId: m.brand_id,
+      brandName: m.brand_name,
+      mentionOrder: m.mention_order,
+      sentiment: m.sentiment,
+      sentimentEvidence: m.sentiment_evidence,
+    }));
 
-    const rows = [];
-    prompts.forEach((prompt, index) => {
-      const detail = details[index];
-      if (!detail) return;
-      for (const exec of detail.executions) {
-        for (const mention of exec.mentions) {
-          rows.push({
-            promptId: prompt.id,
-            promptText: prompt.text,
-            intent: prompt.intent,
-            providerId: exec.llm_provider_id,
-            providerName: exec.llm_provider_name,
-            executionRunId: exec.execution_run_id,
-            status: exec.status,
-            brandId: mention.brand_id,
-            brandName: mention.brand_name,
-            mentionOrder: mention.mention_order,
-            sentiment: mention.sentiment,
-            sentimentEvidence: mention.sentiment_evidence,
-          });
-        }
-      }
-    });
-
-    return { prompts, details, rows };
+    return { rows };
   })();
 
   cache.set(key, promise);

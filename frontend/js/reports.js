@@ -14,6 +14,7 @@ function els() {
     summaryCards: document.querySelector("#reportSummaryCards"),
     vulnerable: document.querySelector("#vulnerablePrompts"),
     competitor: document.querySelector("#competitorAdvantage"),
+    ownBrandAnswers: document.querySelector("#ownBrandAnswers"),
     sentimentBreakdown: document.querySelector("#sentimentBreakdown"),
   };
 }
@@ -50,6 +51,44 @@ async function loadWeeklyReport() {
   } catch (error) {
     renderError(e.summaryCards, error, { onRetry: loadWeeklyReport });
   }
+  loadOwnBrandAnswers();
+}
+
+async function loadOwnBrandAnswers() {
+  const e = els();
+  renderLoading(e.ownBrandAnswers, "자사 브랜드 응답을 불러오는 중…");
+  try {
+    const answers = await api.getOwnBrandAnswers();
+    renderOwnBrandAnswers(e.ownBrandAnswers, answers);
+  } catch (error) {
+    renderError(e.ownBrandAnswers, error, { onRetry: loadOwnBrandAnswers });
+  }
+}
+
+function renderOwnBrandAnswers(container, answers) {
+  if (!answers.length) {
+    renderEmpty(container, {
+      title: "자사 브랜드 프롬프트 실행 결과가 없습니다",
+      message: "brand_type=자사 브랜드로 분류된 프롬프트가 이번 주에 실행되지 않았습니다.",
+    });
+    return;
+  }
+  container.innerHTML = answers
+    .map((a) => {
+      const badge = a.own_brand_mentioned
+        ? `<span class="badge" style="background:#e6f4ea;color:var(--good);">언급됨${a.sentiment ? " · " + escapeHtml(a.sentiment) : ""}</span>`
+        : `<span class="badge" style="background:#fde9e7;color:var(--bad);">언급 안 됨</span>`;
+      return `
+      <div class="issue">
+        <div class="issue-head">
+          <strong>${escapeHtml(a.prompt_text)}</strong>
+          ${badge}
+        </div>
+        <p>${escapeHtml(a.llm_provider_name)} · repeat ${a.repeat_index}${a.own_brand_names_mentioned.length ? " · " + escapeHtml(a.own_brand_names_mentioned.join(", ")) : ""}</p>
+      </div>
+    `;
+    })
+    .join("");
 }
 
 function renderSummaryCards(container, summary) {

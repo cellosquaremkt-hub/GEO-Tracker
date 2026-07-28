@@ -11,6 +11,14 @@ const TARGET_LABEL = {
   practitioner: "Practitioner",
   junior: "Junior",
   seller: "Seller",
+  common: "공통",
+};
+
+const BRAND_TYPE_LABEL = {
+  non_brand_longtail: "비브랜드 롱테일",
+  category_representative: "카테고리 대표성",
+  competitive_comparison: "경쟁 비교형",
+  own_brand: "자사 브랜드",
 };
 
 function els() {
@@ -82,7 +90,11 @@ function renderTable(wrap, prompts) {
             <td>
               <div class="keyword-cell">
                 <strong>${escapeHtml(p.text)}</strong>
-                <span>${escapeHtml(p.intent)}</span>
+                <span>
+                  ${escapeHtml(p.intent)}
+                  ${p.brand_type ? ` · ${escapeHtml(BRAND_TYPE_LABEL[p.brand_type] || p.brand_type)}` : ""}
+                  ${p.source === "excel_import" ? `<span class="badge neutral" title="${escapeHtml(p.source_file || "")}">엑셀 가져옴</span>` : ""}
+                </span>
               </div>
             </td>
             <td>${TARGET_LABEL[p.target] || escapeHtml(p.target)}</td>

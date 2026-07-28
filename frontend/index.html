@@ -132,6 +132,24 @@
 
         <div class="section-head">
           <div>
+            <h3>엑셀 업로드로 프롬프트 일괄 추가</h3>
+            <p>산업/서비스라인/트레이드레인/직급(태그)/퍼널인텐트/브랜드성/V1_검색어형/V2_질문형 9개 열로 구성된 엑셀만 지원합니다. 한 행당 V1/V2 두 프롬프트가 만들어지고, 전부 "엑셀 가져옴" 꼬리표가 붙습니다. 한 행이라도 값 매핑에 실패하면 전체가 취소됩니다.</p>
+          </div>
+        </div>
+        <form class="settings-form" id="promptImportForm">
+          <label>
+            엑셀 파일(.xlsx)
+            <input id="promptImportFile" type="file" accept=".xlsx" required>
+          </label>
+          <button class="btn primary" type="submit">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3 6 9h4v6h4V9h4l-6-6ZM5 19h14v2H5v-2Z" fill="currentColor"/></svg>
+            업로드
+          </button>
+        </form>
+        <div id="promptImportResult" style="padding:8px 0;font-size:13px;"></div>
+
+        <div class="section-head">
+          <div>
             <h3>브랜드 관리</h3>
             <p>고유 ID로 식별됩니다. 별칭·도메인은 인라인으로 추가/삭제할 수 있습니다.</p>
           </div>
@@ -375,6 +393,13 @@
                   </div>
                   <div class="issue-list" id="competitorAdvantage" style="padding:16px;"></div>
                 </div>
+              </section>
+              <section class="panel" style="margin-top:18px;">
+                <div class="panel-head">
+                  <h3>자사 브랜드 응답 (별도 집계)</h3>
+                  <p>브랜드명을 직접 물어본 프롬프트의 응답입니다. 언급률이 구조적으로 높을 수밖에 없어 위 SOV/취약/경쟁사 우위 집계에는 포함하지 않습니다.</p>
+                </div>
+                <div class="issue-list" id="ownBrandAnswers" style="padding:16px;"></div>
               </section>
             </section>
             <section id="reportsSentimentTab" hidden>

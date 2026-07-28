@@ -12,11 +12,22 @@ deactivate_prompt()로 비활성화한다. 두 동작은 독립적이라 admin�
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.models.enums import ExecutionStatus, Language, Priority, Sentiment, Target
+from app.models.enums import (
+    BrandType,
+    ExecutionStatus,
+    FunnelIntent,
+    Language,
+    Priority,
+    PromptPhrasing,
+    PromptSource,
+    Sentiment,
+    Target,
+)
 from app.models.execution import Citation, ExecutionRun, Mention
 from app.models.prompt import Prompt
 from app.services.brand_loader import load_brand_infos
@@ -35,10 +46,16 @@ def list_prompts(
     priority: Priority | None = None,
     language: Language | None = None,
     is_active: bool | None = None,
+    brand_type: BrandType | None = None,
+    source: PromptSource | None = None,
 ) -> list[Prompt]:
     stmt = select(Prompt)
     if intent is not None:
         stmt = stmt.where(Prompt.intent == intent)
+    if brand_type is not None:
+        stmt = stmt.where(Prompt.brand_type == brand_type)
+    if source is not None:
+        stmt = stmt.where(Prompt.source == source)
     if target is not None:
         stmt = stmt.where(Prompt.target == target)
     if priority is not None:
@@ -194,6 +211,16 @@ def create_prompt(
     priority: Priority,
     language: Language,
     supersedes_id: int | None = None,
+    industry: str | None = None,
+    service_line: str | None = None,
+    trade_lane: str | None = None,
+    funnel_intent: FunnelIntent | None = None,
+    brand_type: BrandType | None = None,
+    phrasing: PromptPhrasing | None = None,
+    topic_group: str | None = None,
+    source: PromptSource = PromptSource.MANUAL,
+    source_file: str | None = None,
+    imported_at: datetime | None = None,
 ) -> Prompt:
     version = 1
     if supersedes_id is not None:
@@ -210,11 +237,31 @@ def create_prompt(
         language=language,
         version=version,
         supersedes_id=supersedes_id,
+        industry=industry,
+        service_line=service_line,
+        trade_lane=trade_lane,
+        funnel_intent=funnel_intent,
+        brand_type=brand_type,
+        phrasing=phrasing,
+        topic_group=topic_group,
+        source=source,
+        source_file=source_file,
+        imported_at=imported_at,
     )
     session.add(prompt)
     session.commit()
     session.refresh(prompt)
     return prompt
+
+
+def deactivate_all_active(session: Session) -> int:
+    """현재 활성 프롬프트를 전부 비활성화한다(대량 교체 시 사용) — 텍스트/이력은 그대로 두고
+    is_active만 끈다. 몇 건을 껐는지 반환한다."""
+    prompts = session.execute(select(Prompt).where(Prompt.is_active.is_(True))).scalars().all()
+    for prompt in prompts:
+        prompt.is_active = False
+    session.commit()
+    return len(prompts)
 
 
 def deactivate_prompt(session: Session, prompt_id: int) -> Prompt | None:

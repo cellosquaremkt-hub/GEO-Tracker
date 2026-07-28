@@ -106,6 +106,11 @@ export function getPromptDetail(promptId, week) {
   return request(`/prompts/${promptId}/detail`, { params: { week } });
 }
 
+// 프롬프트별 개별 조회(N+1)를 피하기 위한 주간 전체 mention 벌크 조회.
+export function getMentions(week) {
+  return request("/mentions", { params: { week } });
+}
+
 export async function getExportCsvBlob(week) {
   const response = await request("/export/csv", { params: { week }, raw: true });
   return response.blob();
@@ -113,6 +118,10 @@ export async function getExportCsvBlob(week) {
 
 export function getWeeklyReport(week) {
   return request("/reports/weekly", { params: { week } });
+}
+
+export function getOwnBrandAnswers(week) {
+  return request("/reports/own-brand", { params: { week } });
 }
 
 // --- 관리자 엔드포인트 (X-Admin-Api-Key 필요) ---------------------------------------------
@@ -152,6 +161,34 @@ export function createPrompt({ text, intent, target, priority, language, superse
 
 export function deactivatePrompt(promptId) {
   return request(`/prompts/${promptId}/deactivate`, { method: "PUT", admin: true });
+}
+
+// multipart/form-data 업로드라 JSON 전용인 request()를 안 쓰고 직접 fetch한다.
+export async function importPromptsExcel(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  let response;
+  try {
+    response = await fetch(buildUrl("/prompts/import-excel"), {
+      method: "POST",
+      headers: { "X-Admin-Api-Key": getAdminKey() },
+      body: formData,
+    });
+  } catch {
+    throw new ApiConnectionError(`${API_BASE}에 연결할 수 없습니다.`);
+  }
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new ApiError(`엑셀 업로드 실패: ${payload.detail || response.statusText}`, {
+      status: response.status,
+      detail: payload.detail,
+    });
+    error.rowErrors = payload.row_errors || [];
+    throw error;
+  }
+  return payload;
 }
 
 export function listLlmProvidersAdmin() {

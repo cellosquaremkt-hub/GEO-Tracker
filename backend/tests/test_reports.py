@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from sqlalchemy.orm import Session
 
 from app.models.brand import Brand
-from app.models.enums import ExecutionStatus, Language, Priority, Sentiment, Target
+from app.models.enums import BrandType, ExecutionStatus, Language, Priority, Sentiment, Target
 from app.models.execution import ExecutionRun, Mention
 from app.models.llm_provider import LLMProvider
 from app.models.prompt import Prompt
@@ -270,3 +270,74 @@ class TestCompetitorAdvantagePrompts:
         response = client.get("/reports/weekly?week=2026-W28")
 
         assert response.get_json()["competitor_advantage_prompts"] == []
+
+
+class TestOwnBrandPromptsExcludedFromWeeklyReport:
+    def test_own_brand_prompt_never_shows_up_as_vulnerable_or_advantage(
+        self, client, db_session: Session
+    ) -> None:
+        """브랜드명을 직접 묻는 프롬프트는 미노출/경쟁사 우위 판단 대상에서 제외된다 —
+        이 두 섹션의 전제(시장 점유율 경쟁 서사)와 맞지 않기 때문이다."""
+        own = Brand(name="삼성SDS", is_own=True)
+        competitor = Brand(name="LX Pantos", is_own=False)
+        provider = LLMProvider(name="claude-code-cli", model_string="sonnet")
+        own_brand_prompt = Prompt(
+            text="삼성SDS 물류란 무엇인가요?",
+            intent="Test",
+            target=Target.COMMON,
+            priority=Priority.MEDIUM,
+            language=Language.KO,
+            brand_type=BrandType.OWN_BRAND,
+        )
+        db_session.add_all([own, competitor, provider, own_brand_prompt])
+        db_session.flush()
+        # own_brand_prompt는 실행에서 아예 언급이 없다 — 필터가 없다면 "미노출"로 잡혔을 상황.
+        _make_run(db_session, prompt=own_brand_prompt, provider=provider, repeat_index=0)
+        db_session.flush()
+
+        response = client.get("/reports/weekly?week=2026-W28")
+        body = response.get_json()
+
+        assert body["vulnerable_prompts"] == []
+        assert body["competitor_advantage_prompts"] == []
+
+
+class TestOwnBrandAnswersEndpoint:
+    def test_reports_own_brand_answers_separately(self, client, db_session: Session) -> None:
+        own = Brand(name="삼성SDS", is_own=True)
+        provider = LLMProvider(name="claude-code-cli", model_string="sonnet")
+        own_brand_prompt = Prompt(
+            text="삼성SDS 물류란 무엇인가요?",
+            intent="Test",
+            target=Target.COMMON,
+            priority=Priority.MEDIUM,
+            language=Language.KO,
+            brand_type=BrandType.OWN_BRAND,
+        )
+        db_session.add_all([own, provider, own_brand_prompt])
+        db_session.flush()
+        run = _make_run(db_session, prompt=own_brand_prompt, provider=provider, repeat_index=0)
+        db_session.add(
+            Mention(
+                execution_run_id=run.id,
+                brand_id=own.id,
+                mention_order=1,
+                sentiment=Sentiment.POSITIVE,
+            )
+        )
+        db_session.flush()
+
+        response = client.get("/reports/own-brand?week=2026-W28")
+
+        assert response.status_code == 200
+        body = response.get_json()
+        assert len(body) == 1
+        assert body[0]["prompt_id"] == own_brand_prompt.id
+        assert body[0]["own_brand_mentioned"] is True
+        assert body[0]["own_brand_names_mentioned"] == ["삼성SDS"]
+        assert body[0]["sentiment"] == "positive"
+
+    def test_no_own_brand_prompts_returns_empty_list(self, client) -> None:
+        response = client.get("/reports/own-brand?week=2026-W28")
+        assert response.status_code == 200
+        assert response.get_json() == []

@@ -25,6 +25,9 @@ function els() {
     toolToggleList: document.querySelector("#toolToggleList"),
     repeatCountInput: document.querySelector("#repeatCountInput"),
     saveRepeatCountBtn: document.querySelector("#saveRepeatCountBtn"),
+    promptImportForm: document.querySelector("#promptImportForm"),
+    promptImportFile: document.querySelector("#promptImportFile"),
+    promptImportResult: document.querySelector("#promptImportResult"),
   };
 }
 
@@ -74,6 +77,22 @@ export function initSettingsOnce() {
     }
   });
 
+  e.promptImportForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const file = e.promptImportFile.files[0];
+    if (!file) return;
+    e.promptImportResult.textContent = "업로드 중…";
+    try {
+      const result = await api.importPromptsExcel(file);
+      e.promptImportForm.reset();
+      clearWeekDataCache();
+      e.promptImportResult.innerHTML = `<span style="color:var(--good);">완료: ${result.rows_processed}개 행 → ${result.prompts_created}개 프롬프트 생성(${escapeHtml(result.source_file)})</span>`;
+      showToast("엑셀 업로드가 완료되었습니다.");
+    } catch (error) {
+      renderPromptImportError(error);
+    }
+  });
+
   e.brandForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const name = e.newBrandName.value.trim();
@@ -112,6 +131,25 @@ async function loadRepeatCount() {
       showToast(describeError(error, "반복 횟수 조회 실패"));
     }
   }
+}
+
+function renderPromptImportError(error) {
+  const e = els();
+  if (error instanceof ApiError && error.status === 401) {
+    e.promptImportResult.innerHTML = `<span style="color:var(--bad);">관리자 키가 없거나 올바르지 않습니다.</span>`;
+    return;
+  }
+  const rowErrors = error instanceof ApiError ? error.rowErrors || [] : [];
+  if (rowErrors.length) {
+    const items = rowErrors
+      .slice(0, 20)
+      .map((r) => `<li>${r.row_number}행: ${escapeHtml(r.message)}</li>`)
+      .join("");
+    const more = rowErrors.length > 20 ? `<p>...외 ${rowErrors.length - 20}건 더</p>` : "";
+    e.promptImportResult.innerHTML = `<span style="color:var(--bad);">${rowErrors.length}개 행에서 오류가 발견되어 아무 것도 만들지 않았습니다:</span><ul style="margin:6px 0 0 18px;">${items}</ul>${more}`;
+    return;
+  }
+  e.promptImportResult.innerHTML = `<span style="color:var(--bad);">${escapeHtml(describeError(error, "업로드 실패"))}</span>`;
 }
 
 function describeError(error, fallback) {

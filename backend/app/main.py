@@ -46,6 +46,7 @@ def create_app() -> Flask:
     from app.api.dashboard import bp as dashboard_bp
     from app.api.export import bp as export_bp
     from app.api.llm_providers import bp as llm_providers_bp
+    from app.api.mentions import bp as mentions_bp
     from app.api.prompts import bp as prompts_bp
     from app.api.reports import bp as reports_bp
     from app.api.runs import bp as runs_bp
@@ -56,6 +57,7 @@ def create_app() -> Flask:
         brands_bp,
         export_bp,
         llm_providers_bp,
+        mentions_bp,
         prompts_bp,
         reports_bp,
         runs_bp,

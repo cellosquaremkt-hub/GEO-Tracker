@@ -15,9 +15,10 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.models.brand import Brand
-from app.models.enums import ExecutionStatus, Sentiment
+from app.models.enums import BrandType, ExecutionStatus, Sentiment
 from app.models.execution import Citation, ExecutionRun, Mention
 from app.models.llm_provider import LLMProvider
+from app.models.prompt import Prompt
 from app.models.snapshot import WeeklySnapshot
 
 _QUANT = Decimal("0.001")
@@ -89,8 +90,17 @@ def _compute_scope_snapshots(
     llm_provider_id: int | None,
     brand_ids: list[int],
 ) -> list[WeeklySnapshot]:
-    run_scope = select(ExecutionRun.id).where(
-        ExecutionRun.batch_id == week_label, ExecutionRun.status == ExecutionStatus.SUCCESS
+    # brand_type=OWN_BRAND(자사 브랜드를 직접 묻는 질문)는 그 브랜드 언급률이 구조적으로
+    # 100%에 가깝기 때문에 SOV 분자/분모 어디에도 넣지 않는다(CLAUDE.md, prompt.py 참조).
+    # 별도 조회는 report_service.get_own_brand_answers() 참조.
+    run_scope = (
+        select(ExecutionRun.id)
+        .join(Prompt, Prompt.id == ExecutionRun.prompt_id)
+        .where(
+            ExecutionRun.batch_id == week_label,
+            ExecutionRun.status == ExecutionStatus.SUCCESS,
+            Prompt.brand_type.is_distinct_from(BrandType.OWN_BRAND),
+        )
     )
     if llm_provider_id is not None:
         run_scope = run_scope.where(ExecutionRun.llm_provider_id == llm_provider_id)

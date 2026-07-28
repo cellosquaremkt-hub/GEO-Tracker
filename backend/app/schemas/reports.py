@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict
 
-from app.models.enums import Priority
+from app.models.enums import Priority, Sentiment
 
 
 class WeeklyReportSummaryResponse(BaseModel):
@@ -44,3 +44,16 @@ class WeeklyReportResponse(BaseModel):
     summary: WeeklyReportSummaryResponse
     vulnerable_prompts: list[VulnerablePromptResponse]
     competitor_advantage_prompts: list[CompetitorAdvantagePromptResponse]
+
+
+class OwnBrandAnswerResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    execution_run_id: int
+    prompt_id: int
+    prompt_text: str
+    llm_provider_name: str
+    repeat_index: int
+    own_brand_mentioned: bool
+    own_brand_names_mentioned: list[str]
+    sentiment: Sentiment | None
